@@ -1,0 +1,56 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  sensitive-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Scan for sensitive patterns
+        run: |
+          SENSITIVE_PATTERNS=(
+            "\.env"
+            "api[_-]?key"
+            "password\s*="
+            "secret\s*="
+            "token\s*="
+            "ghp_[A-Za-z0-9]{36}"
+            "openai[_-]?key"
+            "minimax[_-]?key"
+            "MEMORY\.md"
+            "USER\.md"
+            "SOUL\.md"
+            "IDENTITY\.md"
+            "TOOLS\.md"
+            "AGENTS\.md"
+            "me_scraper"
+            "\.sqlite3"
+            "seed\.sql"
+            "爬虫"
+          )
+          
+          BLOCKED_FILES=""
+          for pattern in "${SENSITIVE_PATTERNS[@]}"; do
+            MATCHED=$(grep -r -l -E "$pattern" --include="*.md" --include="*.js" --include="*.py" --include="*.json" --include="*.sql" . 2>/dev/null || true)
+            if [ -n "$MATCHED" ]; then
+              BLOCKED_FILES="$BLOCKED_FILES\n  [$pattern]: $MATCHED"
+            fi
+          done
+          
+          if [ -n "$BLOCKED_FILES" ]; then
+            echo "========================================="
+            echo "  CODE-REVIEWER: SECURITY VIOLATION"
+            echo "========================================="
+            echo "  Sensitive patterns detected:"
+            echo -e "$BLOCKED_FILES"
+            echo "========================================="
+            echo "::error::Sensitive content detected in repository"
+            exit 1
+          fi
+          
+          echo "✅ Security scan passed - no sensitive patterns found"
